@@ -14,6 +14,8 @@ namespace Shittim.Utils
     ///    console output**.  Because ASP.NET request-handling threads write
     ///    log lines through <c>Console.WriteLine</c>, every request-handling
     ///    thread blocks until the user presses Escape – freezing the server.
+    ///    This is now opt-in because disabling QuickEdit also removes the
+    ///    normal mouse selection / scroll behaviour in a regular terminal.
     ///
     /// 2. **Stdout pipe buffer saturation** (GUI launcher / piped output)
     ///    When the server is spawned as a child process whose stdout is a
@@ -47,12 +49,13 @@ namespace Shittim.Utils
         /// </summary>
         public static void Harden()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && ShouldDisableQuickEdit())
             {
                 DisableQuickEditMode();
             }
 
-            InstallAsyncConsoleWriter();
+            if (ShouldInstallAsyncConsoleWriter())
+                InstallAsyncConsoleWriter();
         }
 
         // ── QuickEdit ──────────────────────────────────────────────────
@@ -80,6 +83,24 @@ namespace Shittim.Utils
         }
 
         // ── Async Console.Out ──────────────────────────────────────────
+
+        private static bool ShouldDisableQuickEdit()
+        {
+            return ReadBoolEnvironmentVariable("SHITTIM_DISABLE_QUICK_EDIT", defaultValue: false);
+        }
+
+        private static bool ShouldInstallAsyncConsoleWriter()
+        {
+            // Keep the async writer for piped / GUI-hosted runs where stdout can block,
+            // but preserve native console colour and line discipline in a real terminal.
+            return ReadBoolEnvironmentVariable("SHITTIM_ASYNC_CONSOLE_WRITER", Console.IsOutputRedirected);
+        }
+
+        private static bool ReadBoolEnvironmentVariable(string name, bool defaultValue)
+        {
+            var value = Environment.GetEnvironmentVariable(name);
+            return bool.TryParse(value, out var parsed) ? parsed : defaultValue;
+        }
 
         private static void InstallAsyncConsoleWriter()
         {

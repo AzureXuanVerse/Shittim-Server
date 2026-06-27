@@ -211,15 +211,17 @@ namespace Shittim.CLI
                     var handlerManager = scope.ServiceProvider.GetRequiredService<HandlerManager>();
                     handlerManager.Initialize();
 
-                    if (console)
+                    var shouldStartConsoleCommands = console || (Environment.UserInteractive && !Console.IsInputRedirected);
+                    if (shouldStartConsoleCommands)
                     {
                         var consoleConnection = new ConsoleClientConnection(
                             contextFactory,
                             mapper,
                             excelService,
                             new StreamWriter(Console.OpenStandardOutput()),
-                            id ?? 2
+                            id ?? 0
                         );
+                        Console.WriteLine("Console GM command listener enabled");
                         _ = Task.Run(() => ConsoleCommand.ConsoleCommandListener(consoleConnection));
                     }
                 }
